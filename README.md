@@ -1,5 +1,6 @@
 # traffic_watcher
 analyses traffic on given video files
+
 all work and no play makes pasha a dull boy
 all work and no play maskes pasha a adull boy
 all work ad no play makes pasha a dull boy
@@ -30,3 +31,7 @@ all work annf no play makes pasha a dull boy
 allwprk amnd no pplay makes pash a dull boy
 alla owrk and no play maje spashaa abul noy
 all wotk and no play make spasha a dull noyt
+all woork and no play makes pasjka a dull boy
+a;; work and no playt mameks pasah a dull aboy
+alla wotrk ano nonplay make spasha a dulla oby
+al  wotl and n play m,akes pasha a dull biy
