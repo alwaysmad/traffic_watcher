@@ -14,108 +14,14 @@ def video_capture_wrapper(*args, **kwargs):
     finally:
          vid_stream.release()
 
-
 ############################################################################################
 
 from dlt import dlt, transform
-from math import floor, ceil
+from draw_marking import draw_transformed_grid
 
 def draw_markings(median_frame, T, T_inv):
-    # works very bad 
-    x_u = 0
-    while True:
-        x = x_u + 1
-        y = 0
-        xy = np.array([[x, y],[x_u, y]])
-        uv = transform(xy, T)
-        if (uv[0,0] - uv[1,0])**2 + (uv[0,1] - uv[1,1])**2 < 100:
-            # small step -> approaching focus
-            break
-        if uv[0,0] < 0 or uv[0,0] > median_frame.shape[1]:
-            # walked out of screen on x
-            break
-        if uv[0,1] < 0 or uv[0,1] > median_frame.shape[0]:
-            # walked out of screen on y
-            break
-        x_u = x_u + 1
-
-    x_l = 0
-    while True:
-        x = x_l - 1
-        y = 0
-        xy = np.array([[x, y],[x_l, y]])
-        uv = transform(xy, T)
-        if (uv[0,0] - uv[1,0])**2 + (uv[0,1] - uv[1,1])**2 < 100:
-            # small step -> approaching focus
-            break
-        if uv[0,0] < 0 or uv[0,0] > median_frame.shape[1]:
-            # walked out of screen on x
-            break
-        if uv[0,1] < 0 or uv[0,1] > median_frame.shape[0]:
-            # walked out of screen on y
-            break
-        x_l = x_l - 1
-
-    y_u = 0
-    while True:
-        x = 0
-        y = y_u + 1
-        xy = np.array([[x, y],[x, y_u]])
-        uv = transform(xy, T)
-        if (uv[0,0] - uv[1,0])**2 + (uv[0,1] - uv[1,1])**2 < 100:
-            # small step -> approaching focus
-            break
-        if uv[0,0] < 0 or uv[0,0] > median_frame.shape[1]:
-            # walked out of screen on x
-            break
-        if uv[0,1] < 0 or uv[0,1] > median_frame.shape[0]:
-            # walked out of screen on y
-            break
-        y_u = y_u + 1
-
-    y_l = 0
-    while True:
-        x = 0
-        y = y_l - 1
-        xy = np.array([[x, y],[x, y_l]])
-        uv = transform(xy, T)
-        if (uv[0,0] - uv[1,0])**2 + (uv[0,1] - uv[1,1])**2 < 100:
-            # small step -> approaching focus
-            break
-        if uv[0,0] < 0 or uv[0,0] > median_frame.shape[1]:
-            # walked out of screen on x
-            break
-        if uv[0,1] < 0 or uv[0,1] > median_frame.shape[0]:
-            # walked out of screen on y
-            break
-        y_l = y_l - 1
-       
-    for x in range(x_l, x_u):
-        xy = np.array([[x, y_l], [x, y_u]])
-        uv = transform(xy, T)
-        cv.line(median_frame, 
-                (int(uv[0,0]), int(uv[0,1])),
-                (int(uv[1,0]), int(uv[1,1])),
-                (255,0,0), 1, cv.LINE_AA)
-
-    for y in range(y_l, y_u):
-        xy = np.array([[x_l, y], [x_u, y]])
-        uv = transform(xy, T)
-        cv.line(median_frame, 
-                (int(uv[0,0]), int(uv[0,1])),
-                (int(uv[1,0]), int(uv[1,1])),
-                (0,0,255), 1, cv.LINE_AA)
+    draw_transformed_grid(median_frame, T, T_inv)
     return median_frame
-
-############################################################################################
-
-def transform_vector(vec, pos, T_inv):
-    uv = np.array([
-        [pos[0]-vec[0]/2, pos[1]-vec[1]/2],
-        [pos[0]+vec[0]/2, pos[1]+vec[1]/2]
-        ])
-    xy = transform(uv, T_inv)
-    return xy[1,:] - xy[0,:]
 
 ############################################################################################
 
@@ -254,6 +160,12 @@ def new_session( namespace ):
     # calculate the median along the time axis
     median_frame = np.median(frames, axis = 0).astype(dtype = np.uint8)
     
+    # set default transform_matrix 
+    T = np.diag([median_frame.shape[1], median_frame.shape[0], 1])
+    T_inv = np.diag([1/median_frame.shape[1], 1/median_frame.shape[0], 1])
+    db_cursor.executemany("INSERT INTO transform_matrix VALUES (?, ?)",
+            [(1, T), (-1, T_inv)] )
+
     # adding median frame to database
     print("Adding median frame to database")
     db_cursor.executemany("INSERT INTO median_image VALUES (?, ?)",
@@ -262,12 +174,6 @@ def new_session( namespace ):
     # 1 -> median frame
     # 2 -> median frame with lines and detectors
     # 3 -> median frame with markings 
-
-    # set default transform_matrix 
-    T = np.diag([median_frame.shape[1], median_frame.shape[0], 1])
-    T_inv = np.diag([1/median_frame.shape[1], 1/median_frame.shape[0], 1])
-    db_cursor.executemany("INSERT INTO transform_matrix VALUES (?, ?)",
-            [(1, T), (-1, T_inv)] )
 
     # count mean fps for session
     frames_count = 0
@@ -585,15 +491,6 @@ def compute_average_for_detector(frame_gs, detector_coords, detector_size):
     detector_zone = frame_gs[ dy_l:dy_u, dx_l:dx_u ]
     return np.mean(detector_zone, axis=(0, 1))
 
-'''
-from scipy.signal import savgol_filter
-def filter_binarized(binarized):
-    filtered = savgol_filter(binarized, 31, 2)
-    #filtered[ filtered > 0.5 ]  = 1
-    #filtered[ filtered <= 0.5 ] = 0
-    #filtered[0] = 0
-    return filtered
-'''
 from scipy import signal
 from filterpy.gh import GHFilter
 
@@ -700,6 +597,10 @@ def plot_detector( namespace ):
             (line_id, detector_number))
     detector = db_cursor.fetchone()
 
+    # fetch fps
+    db_cursor.execute("SELECT fps FROM mean_fps")
+    fps = db_cursor.fetchone()[0]
+
     # save and close database
     close_database(db_connection, db_cursor)
 
@@ -713,25 +614,27 @@ def plot_detector( namespace ):
     mean_color = detector[1]
     binarized = detector[2]
     detections = detector[3]
-    
+   
+    t = np.arange(0, binarized.shape[0]) / fps
+
     # plot data
     ax1 = plt.subplot(3, 1, 1)
     ax1.title.set_text("mean color")
-    ax1.plot(mean_color, 'b')
+    ax1.plot(t, mean_color, 'b')
     ax1.axhline(y = median_frame_color, color='b', linestyle='--')
-    ax1.set_xlabel('frames', loc='right')
+    ax1.set_xlabel('t, [s]', loc='right')
     ax1.grid()
 
     ax2 = plt.subplot(3, 1, 2)
     ax2.title.set_text("binarized")
-    ax2.step(binarized, 'b', where='mid')
-    ax2.set_xlabel('frames', loc='right')
+    ax2.step(t, binarized, 'b', where='mid')
+    ax2.set_xlabel('t, [s]', loc='right')
     ax2.grid()
 
     ax3 = plt.subplot(3, 1, 3)
     ax3.title.set_text("detections")
-    ax3.step( np.cumsum(detections), 'b', where='mid')
-    ax3.set_xlabel('frames', loc='right')
+    ax3.step(t, np.cumsum(detections), 'b', where='mid')
+    ax3.set_xlabel('t, [s]', loc='right')
     ax3.grid()
 
     plt.tight_layout()
@@ -779,7 +682,7 @@ def plot_line( namespace ):
         os._exit(os.EX_OK)
 
     # compute velocity
-    slice_window = 60
+    slice_window = int(fps) * 5
     v = np.zeros( detectors[0]['mean_color'].shape )
 
     for i, _ in enumerate(v):
@@ -798,21 +701,27 @@ def plot_line( namespace ):
                     lag = 0
                 else:
                     lag = -lags[np.argmax(correlation)]
-                dr = np.array( [ d1['x']-d2['x'], d1['y']-d2['y'] ] )
-                pos = np.array([(d1['x']+d2['x'])/2, (d1['y']+d2['y'])/2])
-                dr = transform_vector(dr, pos, T_inv)
+                uv = np.array([
+                    [d1['x'], d1['y']],
+                    [d2['x'], d2['y']], 
+                    ])
+                xy = transform(uv, T_inv)
+                dr = np.array([xy[0,0] - xy[1,0], xy[0,1] - xy[1,1]])
                 dr = np.sqrt( dr.dot(dr) )
                 if lag != 0:
-                    vs.append( dr / lag * fps)
+                    vs.append( np.abs(dr / lag * fps))
         if vs:
             v[i] = np.mean(vs)
     
     # compute line length
     line_length = []
     for d1, d2 in itertools.pairwise(detectors):
-        dr = np.array( [ d1['x']-d2['x'], d1['y']-d2['y'] ] )
-        pos = np.array([(d1['x']+d2['x'])/2, (d1['y']+d2['y'])/2])
-        dr = transform_vector(dr, pos, T_inv)
+        uv = np.array([
+            [d1['x'], d1['y']],
+            [d2['x'], d2['y']], 
+            ])
+        xy = transform(uv, T_inv)
+        dr = np.array([xy[0,0] - xy[1,0], xy[0,1] - xy[1,1]])
         dr = np.sqrt( dr.dot(dr) )
         line_length.append(dr)
     line_length = np.sum(line_length)
@@ -826,7 +735,7 @@ def plot_line( namespace ):
         detections = [
                 np.sum( detector['detections'][ max(0, i-slice_window): i ] ) / min(slice_window, i)
                 for detector in detectors]
-        intensity[i] = np.mean(detections)
+        intensity[i] = np.mean(detections) * fps
     
     # compute density
     rho = np.zeros( detectors[0]['mean_color'].shape )
@@ -841,34 +750,37 @@ def plot_line( namespace ):
     formatter.set_scientific(True) 
     formatter.set_powerlimits( (-1,1) ) 
 
+    t = np.arange(0, v.shape[0]) / fps
+
     ax1 = plt.subplot(3, 1, 1)
     ax1.title.set_text("velocity")
-    ax1.plot(v, 'b--', label="velocity")
-    ax1.plot(gh_filter(v), 'b', label="filtered velocity")
-    ax1.set_xlabel('frames', loc='right')
+    ax1.plot(t, v, 'b--', label="velocity")
+    ax1.plot(t, gh_filter(v), 'b', label="filtered velocity")
+    ax1.set_xlabel('t, [s]', loc='right')
     plt.ylabel("y", rotation=0)
-    ax1.set_ylabel('[p/f]', loc='top')
+    ax1.set_ylabel('v, [m/s]', loc='top')
+    #ax1.set_ylim([0, 100])
     ax1.grid()
 
     ax2 = plt.subplot(3, 1, 2)
     ax2.title.set_text("intensity")
-    ax2.plot( gh_filter(v) * gh_filter(rho), 'b', label=r'$\rho_f \cdot v_f$')
-    ax2.plot(intensity, 'g--', label='intensity')
-    ax2.plot(gh_filter(intensity), 'g', label="filtered intensity")
-    ax2.set_xlabel('frames', loc='right')
+    ax2.plot(t,  gh_filter(v) * gh_filter(rho), 'b', label=r'$\rho_f \cdot v_f$')
+    ax2.plot(t, intensity, 'g--', label='intensity')
+    ax2.plot(t, gh_filter(intensity), 'g', label="filtered intensity")
+    ax2.set_xlabel('t, [s]', loc='right')
     plt.ylabel("y", rotation=0)
-    ax2.set_ylabel('[1/f]', loc='top')
+    ax2.set_ylabel('q, [1/s]', loc='top')
     ax2.yaxis.set_major_formatter(formatter)
     ax2.grid()
     #ax2.legend()
     
     ax3 = plt.subplot(3, 1, 3)
     ax3.title.set_text("density")
-    ax3.plot(rho, 'b--')
-    ax3.plot(gh_filter(rho), 'b', label="filtered density")
-    ax3.set_xlabel('frames', loc='right')
+    ax3.plot(t, rho, 'b--')
+    ax3.plot(t, gh_filter(rho), 'b', label="filtered density")
+    ax3.set_xlabel('t, [s]', loc='right')
     plt.ylabel("y", rotation=0)
-    ax3.set_ylabel('[1/p]', loc='top')
+    ax3.set_ylabel('ρ, [1/m]', loc='top')
     ax3.yaxis.set_major_formatter(formatter)
     ax3.grid()
 
@@ -879,7 +791,6 @@ def plot_line( namespace ):
 ############################################################################################
 
 def set_marking( namespace ):
-    print(namespace)
 
     if not hasattr(namespace, 'method'):
         print("To set marking a method must be specified.")
@@ -897,18 +808,20 @@ def set_marking( namespace ):
         os._exit(os.EX_OK)
 
     if namespace.method == "coordinates":
+        r = namespace.r
         xy = []
-        # if len(r) is odd
-        # fuck you
-        while len(namespace.r) > 0:
-            x = namespace.r.pop(0)
-            y = namespace.r.pop(0)
+        if len(r) % 2 == 1:
+            print("Incorrect number of coordinates")
+            os._exit(os.EX_OK)
+        while len(r) > 0:
+            x = r.pop(0)
+            y = r.pop(0)
             xy.append([x, y])
 
     db_connection, db_cursor = open_database()
     
     # fetch median image from database
-    db_cursor.execute("SELECT image FROM median_image WHERE id = 2")
+    db_cursor.execute("SELECT image FROM median_image WHERE id = 1")
     median_frame = db_cursor.fetchone()[0] 
 
     # make window
@@ -943,9 +856,9 @@ def set_marking( namespace ):
     db_cursor.execute("SELECT image FROM median_image WHERE id = 1")
     median_frame = db_cursor.fetchone()[0] 
 
-    # save transform matrix to database
-    db_cursor.executemany("INSERT INTO transform_matrix VALUES (?, ?)",
-            [(1, T), (-1, T_inv)] )
+    # update transform matrix in database
+    db_cursor.executemany("UPDATE transform_matrix SET matrix = ? WHERE id = ?",
+            [(T, 1), (T_inv, -1)] )
     print("Transform matrix:"); print(T)
     
     median_frame = draw_markings(median_frame, T, T_inv)
@@ -1005,8 +918,10 @@ def reset_marking( namespace ):
     # set transform matrix to default
     T = np.diag([median_frame.shape[1], median_frame.shape[0], 1])
     T_inv = np.diag([1/median_frame.shape[1], 1/median_frame.shape[0], 1])
-    db_cursor.executemany("INSERT INTO transform_matrix VALUES (?, ?)",
-            [(1, T), (-1, T_inv)] )
+
+    # update transform matrix in database
+    db_cursor.executemany("UPDATE transform_matrix SET matrix = ? WHERE id = ?",
+            [(T, 1), (T_inv, 1)] )
     print("Transform matrix:"); print(T)
     
     median_frame = draw_markings(median_frame, T, T_inv)
