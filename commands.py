@@ -142,7 +142,7 @@ def new_session( namespace ):
             frames_count.append( # add to list
                     vid.get(cv.CAP_PROP_FRAME_COUNT) # frame count
                     )
-    frames_to_median = 21 #201 # may be too many
+    frames_to_median = 51 #201 # may be too many
     total_frames = sum( frames_count )
     frames = [] # list of frames
     # get frames
@@ -754,19 +754,20 @@ def plot_line( namespace ):
 
     ax1 = plt.subplot(3, 1, 1)
     ax1.title.set_text("velocity")
-    ax1.plot(t, v, 'b--', label="velocity")
+    ax1.plot(t, v, 'b--', label="velocity", linewidth=0.5)
     ax1.plot(t, gh_filter(v), 'b', label="filtered velocity")
     ax1.set_xlabel('t, [s]', loc='right')
     plt.ylabel("y", rotation=0)
     ax1.set_ylabel('v, [m/s]', loc='top')
-    #ax1.set_ylim([0, 100])
+    if np.max(v) >= 30:
+        ax1.set_ylim([-5, 30])
     ax1.grid()
 
     ax2 = plt.subplot(3, 1, 2)
     ax2.title.set_text("intensity")
-    ax2.plot(t,  gh_filter(v) * gh_filter(rho), 'b', label=r'$\rho_f \cdot v_f$')
-    ax2.plot(t, intensity, 'g--', label='intensity')
-    ax2.plot(t, gh_filter(intensity), 'g', label="filtered intensity")
+    ax2.plot(t,  gh_filter(v) * gh_filter(rho), 'g', label=r'$\rho_f \cdot v_f$')
+    ax2.plot(t, intensity, 'b--', label='intensity', linewidth=0.5)
+    ax2.plot(t, gh_filter(intensity), 'b', label="filtered intensity")
     ax2.set_xlabel('t, [s]', loc='right')
     plt.ylabel("y", rotation=0)
     ax2.set_ylabel('q, [1/s]', loc='top')
@@ -776,7 +777,7 @@ def plot_line( namespace ):
     
     ax3 = plt.subplot(3, 1, 3)
     ax3.title.set_text("density")
-    ax3.plot(t, rho, 'b--')
+    ax3.plot(t, rho, 'b--', linewidth=0.5)
     ax3.plot(t, gh_filter(rho), 'b', label="filtered density")
     ax3.set_xlabel('t, [s]', loc='right')
     plt.ylabel("y", rotation=0)

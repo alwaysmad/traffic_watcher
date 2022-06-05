@@ -63,15 +63,15 @@ def draw_transformed_grid(image, T, T_inv, step=None):
     A_ub = [
             [-t13, -t23]
             ]
-    b_ub = [-0.30 + t33]
+    b_ub = [-0.3 + t33]
 
-    uv_1 = linprog(c = [1, 1], A_ub=A_ub, b_ub=b_ub, bounds=[(0,W), (0,H)]) # u min
+    uv_1 = linprog(c = [1, 1], A_ub=A_ub, b_ub=b_ub, bounds=[(0,W), (0,H)])
     uv_1 = uv_1.x
-    uv_2 = linprog(c = [-1, 1], A_ub=A_ub, b_ub=b_ub, bounds=[(0,W), (0,H)]) # u max
+    uv_2 = linprog(c = [-1, 1], A_ub=A_ub, b_ub=b_ub, bounds=[(0,W), (0,H)])
     uv_2 = uv_2.x
-    uv_3 = linprog(c = [1, -1], A_ub=A_ub, b_ub=b_ub, bounds=[(0,W), (0,H)]) # v min
+    uv_3 = linprog(c = [1, -1], A_ub=A_ub, b_ub=b_ub, bounds=[(0,W), (0,H)])
     uv_3 = uv_3.x
-    uv_4 = linprog(c = [-1, -1], A_ub=A_ub, b_ub=b_ub, bounds=[(0,W), (0,H)]) # v max
+    uv_4 = linprog(c = [-1, -1], A_ub=A_ub, b_ub=b_ub, bounds=[(0,W), (0,H)])
     uv_4 = uv_4.x
 
     xy_1 = transform(np.array([[uv_1[0], uv_1[1]]]), T_inv)
@@ -86,18 +86,23 @@ def draw_transformed_grid(image, T, T_inv, step=None):
     
     if step is None:
         d =  min(x_u-x_l, y_u-y_l)
-        if d <= 200:
+        if d <= 100:
             step = 1
-        elif d <= 2000:
+        elif d <= 1000:
             step = 10
-        elif d <= 20000:
+        elif d <= 10000:
             step = 100
         else:
             step = 1000
 
-    for x in range( floor(x_l), ceil(x_u), step ):
+    for x in range( 0, ceil(x_u), step ):
         draw_transformed_line(image, (x,0), (x,1), T, T_inv, (0,0,255))
-    for y in range( floor(y_l), ceil(y_u), step ):
+    for x in range( 0, floor(x_l), -step ):
+        draw_transformed_line(image, (x,0), (x,1), T, T_inv, (0,0,255))
+
+    for y in range( 0, ceil(y_u), step ):
+        draw_transformed_line(image, (0,y), (1,y), T, T_inv, (255,0,0))
+    for y in range( 0, floor(y_l), -step ):
         draw_transformed_line(image, (0,y), (1,y), T, T_inv, (255,0,0))
 
 ####################################################################################################
@@ -118,7 +123,7 @@ if __name__ == "__main__":
         ])
     T_inv = np.linalg.inv(T) 
 
-    image = np.zeros((2000,2000,3), np.uint8)
+    image = np.zeros((1500,1500,3), np.uint8)
 
     zero_point = transform(np.array([[0, 0]]), T)
     cv.circle(image, (int(zero_point[0,0]), int(zero_point[0,1])), 4, (255,255,255), -1, cv.LINE_AA)
